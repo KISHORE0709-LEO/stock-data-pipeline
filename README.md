@@ -161,9 +161,9 @@ cd d:\Kishore\New_project\stock-data-pipeline
 ```
 
 #### Step 2: Configure Environment Variables
-Verify or edit `.env` (a production-ready `.env` with a working Alpha Vantage API key is already configured in this repository):
+Copy `.env.example` to `.env` (if not already present) and configure your credentials:
 ```ini
-ALPHA_VANTAGE_API_KEY=V6W3UHOMOHKHE1G5
+ALPHA_VANTAGE_API_KEY=your_alphavantage_api_key_here
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=stockdb
