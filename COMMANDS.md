@@ -6,6 +6,7 @@ This cheatsheet contains every single command you need to build, run, monitor, t
 
 ## Table of Contents
 
+0. [Makefile Quick Reference (Recommended)](#0-makefile-quick-reference-recommended)
 1. [Prerequisites & Docker Setup](#1-prerequisites--docker-setup)
 2. [Starting the Entire Pipeline](#2-starting-the-entire-pipeline)
 3. [Checking Container Health & Logs](#3-checking-container-health--logs)
@@ -14,6 +15,27 @@ This cheatsheet contains every single command you need to build, run, monitor, t
 6. [Running Test Suites](#6-running-test-suites)
 7. [Stopping & Resetting the Pipeline](#7-stopping--resetting-the-pipeline)
 8. [Quick Troubleshooting Commands](#8-quick-troubleshooting-commands)
+
+---
+
+## 0. Makefile Quick Reference (Recommended)
+
+For the cleanest, most professional developer experience, a standard `Makefile` is included:
+
+| Command | Description |
+| :--- | :--- |
+| `make` or `make help` | Show formatted list of all available commands |
+| **`make start`** | **Build & start services, wait for ready, display clickable Airflow link** |
+| `make stop` | Gracefully stop running containers (preserves database) |
+| `make restart` | Restart all pipeline containers |
+| `make status` | Check status, health, and port mappings of all containers |
+| `make logs` | Stream live consolidated logs from all services |
+| `make test` | Run all 15 unit and resilience scenario tests |
+| `make trigger` | Trigger pipeline DAG in Airflow immediately |
+| `make db-count` | Query row counts and date ranges in PostgreSQL |
+| `make db-shell` | Open interactive `psql` shell in database container |
+| `make clean` | Stop and tear down containers and network (preserves data) |
+| `make reset` | Hard reset: wipe containers, networks, AND database volumes |
 
 ---
 

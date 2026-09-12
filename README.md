@@ -139,7 +139,27 @@ When the Docker Compose stack is running, all core services are bound directly t
 
 ## 4. Quick Start Runbook
 
-### Method A: 1-Click Launchers (Easiest)
+### Method A: Makefile (Recommended / Professional)
+
+If you have `make` installed (Linux, macOS, WSL, Git Bash, or Windows with Make):
+
+```bash
+# 1. Build & start services, wait for readiness, and display clickable Airflow link:
+make start
+
+# Other handy commands:
+make status      # View container health and ports
+make logs        # Stream live consolidated logs
+make test        # Run the 15-test unit & scenario resilience test suite
+make trigger     # Trigger pipeline DAG in Airflow immediately
+make db-count    # Inspect ingested stock data in PostgreSQL
+make stop        # Stop containers (preserves database data)
+make clean       # Tear down containers and network
+```
+
+---
+
+### Method B: 1-Click Launchers (Windows Native)
 
 * **Windows Command Prompt / Double-click**:
   Double-click `run_pipeline.bat` or run:
@@ -153,7 +173,7 @@ When the Docker Compose stack is running, all core services are bound directly t
 
 ---
 
-### Method B: Manual Command-Line Workflow
+### Method C: Manual Command-Line Workflow
 
 #### Step 1: Clone or Navigate to Project
 ```powershell
