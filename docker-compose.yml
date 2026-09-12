@@ -1,0 +1,144 @@
+version: "3.8"
+
+# ==============================================================================
+# Common Airflow Configuration (Anchor Definition)
+# ==============================================================================
+x-airflow-common: &airflow-common
+  build: .
+  image: stock-pipeline-airflow:latest
+  user: "${AIRFLOW_UID:-50000}:0"
+  env_file:
+    - .env
+  environment:
+    # Airflow Core Settings
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-stockuser}:${POSTGRES_PASSWORD:-stockpassword}@postgres:5432/${POSTGRES_DB:-stockdb}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+    # Pipeline Settings & Database Target (Internal Docker network hostname: 'postgres')
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: 5432
+    POSTGRES_DB: ${POSTGRES_DB:-stockdb}
+    POSTGRES_USER: ${POSTGRES_USER:-stockuser}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockpassword}
+    ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-YOUR_API_KEY}
+    STOCK_SYMBOLS: ${STOCK_SYMBOLS:-AAPL,MSFT,GOOGL}
+    PYTHONPATH: /opt/airflow:/opt/airflow/scripts
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./scripts:/opt/airflow/scripts
+    - ./sql:/opt/airflow/sql
+    - airflow-logs:/opt/airflow/logs
+  networks:
+    - pipeline-network
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+# ==============================================================================
+# Services
+# ==============================================================================
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL: Application Storage & Airflow Metadata
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: stock_postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stockuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stockpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-stockdb}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stockuser} -d ${POSTGRES_DB:-stockdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pipeline-network
+
+  # ----------------------------------------------------------------------------
+  # Airflow Init: Database migrations and default admin user creation
+  # ----------------------------------------------------------------------------
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow_init
+    command:
+      - bash
+      - -c
+      - |
+        echo 'Running Airflow database migrations...' &&
+        airflow db migrate &&
+        echo 'Creating Airflow admin user...' &&
+        airflow users create \
+          --username "$${AIRFLOW_ADMIN_USER:-admin}" \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email "$${AIRFLOW_ADMIN_EMAIL:-admin@example.com}" \
+          --password "$${AIRFLOW_ADMIN_PASSWORD:-admin}" || true
+    restart: "no"
+
+  # ----------------------------------------------------------------------------
+  # Airflow Webserver: UI and REST API
+  # ----------------------------------------------------------------------------
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow_webserver
+    command: webserver
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # ----------------------------------------------------------------------------
+  # Airflow Scheduler: Job Scheduling and Task Execution
+  # ----------------------------------------------------------------------------
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow_scheduler
+    command: scheduler
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+# ==============================================================================
+# Persistent Volumes & Network
+# ==============================================================================
+volumes:
+  postgres-data:
+    driver: local
+  airflow-logs:
+    driver: local
+
+networks:
+  pipeline-network:
+    driver: bridge
